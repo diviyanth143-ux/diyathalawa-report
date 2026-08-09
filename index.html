@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diyatalawa — Village Report &amp; Geo-Portal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<style>
+  :root{
+    --ink: #0e1f18;
+    --panel: #142d22;
+    --panel-2: #1b3a2c;
+    --mist: #9fb3ac;
+    --mist-dim: #6b8079;
+    --brass: #c9a24b;
+    --brass-soft: #e4c876;
+    --sage: #7fae87;
+    --paper: #eef1ea;
+    --line: rgba(201,162,75,0.22);
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.65;
+  }
+  h1,h2,h3{ font-family: 'Georgia', serif; font-weight: 400; }
+  a{ color: var(--brass-soft); }
+
+  /* NAV */
+  nav{
+    position: sticky; top:0; z-index: 50;
+    background: rgba(14,31,24,0.94);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+    display:flex; align-items:center; gap: 4px;
+    padding: 12px 24px; overflow-x:auto;
+  }
+  nav .brand{
+    font-family:'Georgia',serif; color: var(--brass-soft);
+    margin-right: 20px; white-space:nowrap; letter-spacing:0.03em;
+  }
+  nav a{
+    color: var(--mist); text-decoration:none; font-size: 13px;
+    padding: 6px 10px; border-radius: 5px; white-space:nowrap;
+  }
+  nav a:hover{ background: var(--panel-2); color: var(--paper); }
+
+  /* HERO */
+  .hero{
+    padding: 70px 24px 50px;
+    text-align:center;
+    border-bottom: 1px solid var(--line);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(201,162,75,0.09), transparent 60%);
+  }
+  .hero .eyebrow{
+    text-transform:uppercase; letter-spacing:0.2em; font-size:11px;
+    color: var(--brass-soft); margin: 0 0 14px;
+  }
+  .hero h1{ font-size: 44px; margin: 0 0 12px; }
+  .hero p{ color: var(--mist); max-width: 620px; margin: 0 auto; font-size: 15px; }
+
+  section{ max-width: 980px; margin: 0 auto; padding: 64px 24px; border-bottom: 1px solid var(--line); }
+  section:last-of-type{ border-bottom:none; }
+  .section-label{
+    text-transform:uppercase; letter-spacing:0.16em; font-size: 11px;
+    color: var(--brass-soft); margin: 0 0 10px;
+  }
+  section h2{ font-size: 28px; margin: 0 0 22px; }
+  section p{ color: var(--paper); font-size: 15px; margin: 0 0 16px; max-width: 760px; }
+  section p.dim{ color: var(--mist); }
+
+  .grid-2{ display:grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .grid-3{ display:grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
+  @media (max-width: 720px){ .grid-2, .grid-3{ grid-template-columns: 1fr; } }
+
+  .card{
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 20px;
+  }
+  .card h3{ font-size: 16px; color: var(--brass-soft); margin: 0 0 8px; }
+  .card p{ font-size: 13.5px; color: var(--mist); margin:0; }
+
+  .timeline{ border-left: 2px solid var(--line); margin-left: 6px; padding-left: 24px; }
+  .t-item{ position:relative; margin-bottom: 26px; }
+  .t-item::before{
+    content:''; position:absolute; left:-31px; top: 4px;
+    width: 10px; height:10px; border-radius:50%; background: var(--brass);
+  }
+  .t-year{ color: var(--brass-soft); font-size: 12.5px; letter-spacing:0.06em; }
+  .t-item h3{ font-size: 16px; margin: 4px 0 6px; }
+  .t-item p{ font-size: 13.5px; color: var(--mist); margin:0; }
+
+  .media-placeholder{
+    aspect-ratio: 4/3; background: var(--panel-2); border: 1px dashed var(--line);
+    border-radius: 8px; display:flex; align-items:center; justify-content:center;
+    color: var(--mist-dim); font-size: 12.5px; text-align:center; padding: 10px;
+  }
+
+  .map-embed{ height: 380px; border-radius: 10px; overflow:hidden; border: 1px solid var(--line); }
+
+  /* GEOPORTAL */
+  .geoportal-wrap{ max-width: none; padding: 0; border-bottom:none; }
+  .gp-header{ max-width: 980px; margin: 0 auto; padding: 64px 24px 24px; }
+  .gp-layout{ display:grid; grid-template-columns: 280px 1fr; border-top: 1px solid var(--line); }
+  .gp-aside{ background: var(--panel); padding: 22px 20px; border-right: 1px solid var(--line); }
+  .gp-aside h4{
+    font-size: 11.5px; text-transform:uppercase; letter-spacing:0.12em;
+    color: var(--brass-soft); margin: 22px 0 10px;
+  }
+  .gp-aside h4:first-of-type{ margin-top:0; }
+  .layer-item{
+    display:flex; align-items:center; gap:9px; padding: 7px 8px;
+    border-radius: 6px; cursor:pointer; font-size: 13px; color: var(--paper);
+  }
+  .layer-item:hover{ background: var(--panel-2); }
+  .layer-item input{ accent-color: var(--brass); }
+  .swatch{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .swatch.sq{ border-radius: 2px; }
+  #gp-map{ width:100%; height: 620px; background:#0a1712; }
+  .gp-note{ font-size: 11.5px; color: var(--mist-dim); line-height:1.6; margin-top: 22px; padding-top:14px; border-top:1px solid var(--line); }
+  .gp-actions{ display:flex; flex-direction:column; gap:8px; margin-top: 16px; }
+  .gp-actions button{
+    font-family:inherit; font-size:13px; padding:10px 12px; border-radius:6px;
+    border: 1px solid rgba(201,162,75,0.4); background:transparent; color: var(--brass-soft);
+    cursor:pointer; text-align:left;
+  }
+  .gp-actions button:hover{ background: var(--brass); color: var(--ink); }
+  .leaflet-popup-content-wrapper{ background: var(--panel); color: var(--paper); border-radius: 8px; }
+  .leaflet-popup-content h3{ margin:0 0 4px; color: var(--brass-soft); font-family:'Georgia',serif; font-weight:400; font-size:15px; }
+  .leaflet-popup-tip{ background: var(--panel); }
+
+  footer{ text-align:center; padding: 30px; color: var(--mist-dim); font-size: 12px; }
+
+  /* ENGAGE / INTERACTIVITY */
+  .social-row{ display:flex; gap: 12px; flex-wrap:wrap; margin-bottom: 30px; }
+  .social-pill{
+    display:flex; align-items:center; gap:8px;
+    padding: 10px 16px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--paper); text-decoration:none; font-size: 13px;
+  }
+  .social-pill:hover{ background: var(--panel-2); border-color: var(--brass); }
+  .social-pill .dot{ width:8px; height:8px; border-radius:50%; }
+
+  .feedback-card{
+    background: var(--panel); border:1px solid var(--line); border-radius: 10px;
+    padding: 24px; margin-bottom: 30px;
+  }
+  .feedback-card label{ display:block; font-size: 12.5px; color: var(--mist); margin: 12px 0 5px; }
+  .feedback-card input, .feedback-card textarea{
+    width:100%; background: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; color: var(--paper); padding: 10px 12px;
+    font-family: inherit; font-size: 13.5px;
+  }
+  .feedback-card textarea{ min-height: 80px; resize: vertical; }
+  .feedback-card button{
+    margin-top: 16px; font-family: inherit; font-size: 13px; padding: 10px 18px;
+    border-radius: 6px; border: 1px solid var(--brass); background: var(--brass);
+    color: var(--ink); cursor:pointer; font-weight:600;
+  }
+  .feedback-card button:hover{ opacity: 0.9; }
+
+  .comment-list{ display:flex; flex-direction:column; gap: 12px; margin-bottom: 18px; }
+  .comment-item{
+    background: var(--panel); border:1px solid var(--line); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .comment-item .who{ font-size: 12.5px; color: var(--brass-soft); margin-bottom: 4px; }
+  .comment-item .what{ font-size: 13.5px; color: var(--paper); margin:0; }
+  .comment-item .when{ font-size: 11px; color: var(--mist-dim); margin-top: 6px; }
+  .empty-note{ color: var(--mist-dim); font-size: 13px; font-style: italic; }
+
+  .setup-note{
+    background: rgba(201,162,75,0.08); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px 18px; font-size: 12.5px; color: var(--mist);
+    margin-top: 30px;
+  }
+  .setup-note b{ color: var(--brass-soft); }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">Diyatalawa</span>
+  <a href="#intro">Introduction</a>
+  <a href="#history">History</a>
+  <a href="#culture">Culture</a>
+  <a href="#unique">Unique Traits</a>
+  <a href="#landmarks">Landmarks</a>
+  <a href="#media">Photos &amp; Videos</a>
+  <a href="#location">Location</a>
+  <a href="#geoportal">Geo-Portal</a>
+  <a href="#engage">Get Involved</a>
+</nav>
+
+<div class="hero">
+  <p class="eyebrow">Uva Province · Badulla District · Sri Lanka</p>
+  <h1>Diyatalawa</h1>
+  <p>A hill-country town of misty grasslands and pine-lined ridges, known as
+  "the watered plain" — shaped by a colonial mission, a wartime prison camp,
+  and a century of military tradition, and today one of Sri Lanka's
+  best-loved highland retreats.</p>
+</div>
+
+<!-- INTRODUCTION -->
+<section id="intro">
+  <p class="section-label">01 — Introduction</p>
+  <h2>About Diyatalawa</h2>
+  <div class="grid-2">
+    <div>
+      <p>Diyatalawa sits at roughly 1,250 metres above sea level in the Badulla
+      District of Uva Province, in Sri Lanka's central highlands. Its name,
+      commonly translated as "the watered plain," describes the open, grassy
+      valley that sets it apart from the denser forest and tea-estate
+      landscapes surrounding it.</p>
+      <p class="dim">The town's character has always been shaped by its cool
+      climate and open terrain — qualities that first drew a colonial-era
+      Christian mission here, and later made it an ideal site for military
+      training grounds that still define the town today.</p>
+    </div>
+    <div class="card">
+      <h3>At a glance</h3>
+      <p><b>Province:</b> Uva<br>
+      <b>District:</b> Badulla<br>
+      <b>Elevation:</b> ~1,250 m<br>
+      <b>Coordinates:</b> 6.8114° N, 80.9569° E<br>
+      <b>Climate:</b> Cool, dry, and misty for a tropical country<br>
+      <b>Known for:</b> Military academy, open grasslands, colonial history</p>
+    </div>
+  </div>
+</section>
+
+<!-- HISTORY -->
+<section id="history">
+  <p class="section-label">02 — History</p>
+  <h2>A Valley Shaped by Outsiders</h2>
+  <p>Diyatalawa's modern history began not with settlers, but with a mission.
+  In 1879, Reverend Samuel Langdon leased land here from the colonial
+  government and established the "Happy Valley" mission — an orphanage,
+  chapel, hospital, and industrial school on what had previously been
+  largely uninhabited highland. Around the same time, the British Army
+  recognised the valley's open terrain and cool climate as ideal for
+  training, and by the mid-1880s had established a garrison known as the
+  Imperial Camp.</p>
+
+  <div class="timeline">
+    <div class="t-item">
+      <p class="t-year">1879</p>
+      <h3>The Happy Valley Mission</h3>
+      <p>Rev. Samuel Langdon establishes a mission settlement, marking the
+      first organised habitation of the valley.</p>
+    </div>
+    <div class="t-item">
+      <p class="t-year">c. 1885</p>
+      <h3>A Military Garrison Takes Root</h3>
+      <p>The British Army sets up the Imperial Camp, beginning Diyatalawa's
+      long association with military training.</p>
+    </div>
+    <div class="t-item">
+      <p class="t-year">1900–1903</p>
+      <h3>The Boer Prisoner-of-War Camp</h3>
+      <p>During the Second Boer War, the mission site is repurposed into one
+      of the largest Boer POW camps outside South Africa, at times holding
+      close to 5,000 prisoners. A cemetery from this period still survives
+      near the present-day rifle range.</p>
+    </div>
+    <div class="t-item">
+      <p class="t-year">20th century</p>
+      <h3>From Camp to Institution</h3>
+      <p>What had been a temporary wartime settlement matures into a
+      permanent military training hub, eventually giving rise to the Sri
+      Lanka Military Academy and the Air Force Combat Training School.</p>
+    </div>
+    <div class="t-item">
+      <p class="t-year">Present day</p>
+      <h3>A Hill-Station Town</h3>
+      <p>Diyatalawa today balances its military identity with life as a
+      quiet highland town — a base for tea smallholders, families, and
+      visitors drawn to its cool air and open views.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CULTURE -->
+<section id="culture">
+  <p class="section-label">03 — Culture &amp; Traditions</p>
+  <h2>Everyday Life in the Highlands</h2>
+  <div class="grid-3">
+    <div class="card">
+      <h3>Military Rhythm</h3>
+      <p>Life in Diyatalawa runs partly on the calendar of the Sri Lanka
+      Military Academy — passing-out parades, training exercises, and a
+      visible service presence shape the town's identity in a way few
+      other Sri Lankan towns share.</p>
+    </div>
+    <div class="card">
+      <h3>Highland Community Life</h3>
+      <p>Away from the parade grounds, daily life follows the pattern of a
+      small hill-country town: temple and church observances, weekly
+      markets, and close-knit neighbourhoods built around tea smallholdings.</p>
+    </div>
+    <div class="card">
+      <h3>A Layered Heritage</h3>
+      <p>Sinhalese highland tradition sits alongside colonial-era
+      architecture and burial grounds — churches, bungalows, and cemeteries
+      that quietly record the town's mission and wartime past.</p>
+    </div>
+  </div>
+  <p class="dim" style="margin-top:22px;">
+  <i>Note for your submission: expand this section with first-hand detail —
+  a local festival, a family tradition, a market-day observation — to keep
+  the culture section grounded in real, current community life rather than
+  only historical framing.</i></p>
+</section>
+
+<!-- UNIQUE CHARACTERISTICS -->
+<section id="unique">
+  <p class="section-label">04 — Unique Characteristics</p>
+  <h2>What Sets Diyatalawa Apart</h2>
+  <div class="grid-2">
+    <div class="card">
+      <h3>The Open Plain</h3>
+      <p>Unlike the steep, forested terrain typical of Sri Lanka's hill
+      country, Diyatalawa's valley is unusually open and grassy — the trait
+      its name refers to, and the reason it was chosen for both a mission
+      and a military camp.</p>
+    </div>
+    <div class="card">
+      <h3>A Cool, Dry Highland Climate</h3>
+      <p>At 1,250 m, Diyatalawa is noticeably cooler and drier than the
+      surrounding tea country, giving it a distinct microclimate that has
+      long made it a retreat from the tropical heat of the lowlands.</p>
+    </div>
+    <div class="card">
+      <h3>A Living Military Town</h3>
+      <p>Few Sri Lankan towns of this size host a national military academy
+      and air force training school — institutions that shape everything
+      from the local economy to the built landscape.</p>
+    </div>
+    <div class="card">
+      <h3>A Rare Colonial-War Footprint</h3>
+      <p>The Boer POW cemetery is one of the only physical traces of the
+      Second Boer War found anywhere in South Asia, giving Diyatalawa a
+      genuinely unusual place in global military history.</p>
+    </div>
+  </div>
+</section>
+
+<!-- LANDMARKS -->
+<section id="landmarks">
+  <p class="section-label">05 — Important Landmarks</p>
+  <h2>Places That Define the Town</h2>
+  <div class="grid-3">
+    <div class="card"><h3>Sri Lanka Military Academy</h3>
+      <p>The country's principal officer-training institution, and the
+      single most defining landmark in Diyatalawa.</p></div>
+    <div class="card"><h3>Boer Prisoner-of-War Cemetery</h3>
+      <p>Burial ground of Boer and British personnel from the 1900–1903 POW
+      camp, marked by rows of Celtic-cross headstones.</p></div>
+    <div class="card"><h3>Diyatalawa Golf Links</h3>
+      <p>One of Sri Lanka's oldest golf courses, laid out across the open
+      highland terrain.</p></div>
+    <div class="card"><h3>Diyatalawa Railway Station</h3>
+      <p>A stop on the scenic upcountry line connecting the hill country to
+      Colombo and Badulla.</p></div>
+    <div class="card"><h3>St. Andrew's Church</h3>
+      <p>A colonial-era church reflecting the British and mission-era roots
+      of the settlement.</p></div>
+    <div class="card"><h3>Town Centre &amp; Bazaar</h3>
+      <p>The main commercial strip — shops, the bus stand, and the weekly
+      market that anchors everyday life.</p></div>
+  </div>
+  <p class="dim" style="margin-top:22px;"><i>Add landmarks specific to your
+  own knowledge of the village — a temple, a viewpoint, a family-run
+  business — the examiners will be looking for local detail beyond what's
+  easily found online.</i></p>
+</section>
+
+<!-- MEDIA -->
+<section id="media">
+  <p class="section-label">06 — Photos &amp; Videos</p>
+  <h2>Visual Gallery</h2>
+  <div class="grid-3">
+  <!-- Image 1 -->
+  <img src="bazaar.jpg" alt="Town centre bazaar" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+
+  <!-- Image 2 -->
+  <img src="academy-gate.jpg" alt="Military Academy gate" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+
+  <!-- Image 3 -->
+  <img src="grasslands.jpg" alt="Grasslands and misty hills" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+
+  <!-- Image 4 -->
+  <img src="railway.jpg" alt="Railway station" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+
+  <!-- Image 5 -->
+  <img src="cemetery.jpg" alt="Boer cemetery" style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+
+  <!-- Video -->
+  <video controls style="width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid var(--line);">
+    <source src="walkthrough.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</div>
+</section>
+
+<!-- LOCATION -->
+<section id="location">
+  <p class="section-label">07 — Location &amp; Maps</p>
+  <h2>Where Diyatalawa Sits</h2>
+  <p>Diyatalawa lies in the Badulla District of Uva Province, along the
+  upcountry railway line, between Haputale and Bandarawela in Sri Lanka's
+  central highlands.</p>
+  <div class="map-embed">
+    <iframe
+      src="https://www.openstreetmap.org/export/embed.html?bbox=80.930%2C6.795%2C80.985%2C6.830&layer=mapnik&marker=6.81139%2C80.95694"
+      style="border:0; width:100%; height:100%;" loading="lazy"></iframe>
+  </div>
+  <p class="dim" style="margin-top:10px; font-size:12.5px;">
+  Simple orientation map. See the Geo-Portal below for detailed, layered
+  spatial data.</p>
+</section>
+
+<!-- GEOPORTAL -->
+<div class="geoportal-wrap" id="geoportal">
+  <div class="gp-header">
+    <p class="section-label">08 — Geo-Portal</p>
+    <h2>Diyatalawa Geo-Portal</h2>
+    <p class="dim">Interactive spatial data for the village — toggle layers,
+    click features for details, and download the underlying data.</p>
+  </div>
+
+  <div class="gp-layout">
+    <aside class="gp-aside">
+      <h4>Boundaries</h4>
+      <label class="layer-item"><input type="checkbox" id="ly-boundary" checked>
+        <span class="swatch sq" style="background:#7fae87;"></span> Village boundary (draft)</label>
+
+      <h4>Infrastructure</h4>
+      <label class="layer-item"><input type="checkbox" id="ly-roads" checked>
+        <span class="swatch sq" style="background:#9fb3ac;"></span> Main roads</label>
+      <label class="layer-item"><input type="checkbox" id="ly-buildings">
+        <span class="swatch sq" style="background:#8a97a0;"></span> Buildings (sample)</label>
+
+      <h4>Facilities</h4>
+      <label class="layer-item"><input type="checkbox" id="ly-schools" checked>
+        <span class="swatch" style="background:#5aa9e6;"></span> Schools</label>
+      <label class="layer-item"><input type="checkbox" id="ly-religious" checked>
+        <span class="swatch" style="background:#c96b4b;"></span> Religious places</label>
+      <label class="layer-item"><input type="checkbox" id="ly-markets" checked>
+        <span class="swatch" style="background:#e4c876;"></span> Markets</label>
+      <label class="layer-item"><input type="checkbox" id="ly-public" checked>
+        <span class="swatch" style="background:#b98fd1;"></span> Public facilities</label>
+      <label class="layer-item"><input type="checkbox" id="ly-landmarks" checked>
+        <span class="swatch" style="background:#c9a24b;"></span> Important landmarks</label>
+
+      <h4>Land Use</h4>
+      <label class="layer-item"><input type="checkbox" id="ly-landuse">
+        <span class="swatch sq" style="background:#4c7a57;"></span> Land-use zones</label>
+
+      <div class="gp-actions">
+        <button id="gp-download">⬇ Download all data (GeoJSON)</button>
+        <button id="gp-reset">↺ Reset map view</button>
+      </div>
+
+      <p class="gp-note">Base map © OpenStreetMap contributors. All feature
+      locations are approximate placeholders — refine with real GPS points,
+      GN-division records, or field surveys before final submission.</p>
+    </aside>
+
+    <div id="gp-map"></div>
+  </div>
+</div>
+
+<section id="engage">
+  <p class="section-label">09 — Get Involved</p>
+  <h2>Connect With Diyatalawa</h2>
+  <p class="dim">Follow along, ask a question, or leave a comment — this
+  page is meant to be a two-way channel between the village and the people
+  who visit or live here.</p>
+
+  <div class="social-row">
+    <a class="social-pill" href="#" target="_blank" rel="noopener">
+      <span class="dot" style="background:#5aa9e6;"></span> Facebook Page</a>
+    <a class="social-pill" href="#" target="_blank" rel="noopener">
+      <span class="dot" style="background:#e58fb1;"></span> Instagram</a>
+    <a class="social-pill" href="#" target="_blank" rel="noopener">
+      <span class="dot" style="background:#7fae87;"></span> WhatsApp Community</a>
+    <a class="social-pill" href="#" target="_blank" rel="noopener">
+      <span class="dot" style="background:#c96b4b;"></span> YouTube Channel</a>
+  </div>
+
+  <div class="feedback-card">
+    <h3 style="margin:0 0 4px;">Send Feedback</h3>
+    <p style="font-size:13px; color:var(--mist); margin:0;">Questions,
+    corrections, or suggestions about the village site or map data.</p>
+    <form id="feedback-form" onsubmit="return false;">
+      <label>Name</label>
+      <input type="text" id="fb-name" placeholder="Your name">
+      <label>Message</label>
+      <textarea id="fb-message" placeholder="What would you like to share?"></textarea>
+      <button id="fb-submit" type="submit">Send</button>
+    </form>
+  </div>
+
+  <h3 style="font-size:16px; color:var(--brass-soft); margin-bottom:14px;">Comments</h3>
+  <div class="comment-list" id="comment-list">
+    <p class="empty-note" id="comment-empty">No comments yet — be the first to share something about Diyatalawa.</p>
+  </div>
+  <div class="feedback-card" style="margin-bottom:0;">
+    <label>Your name</label>
+    <input type="text" id="c-name" placeholder="Your name">
+    <label>Comment</label>
+    <textarea id="c-text" placeholder="Share a thought, question, or memory about the village…"></textarea>
+    <button id="c-submit" type="button">Post comment</button>
+  </div>
+
+  <div class="setup-note">
+    <b>For your live submission:</b> this comment box works in-browser as a
+    demo, but comments won't be saved once the page reloads — a static
+    site can't store data on its own. Before you host this, replace it
+    with a real free comment system such as
+    <a href="https://giscus.app" target="_blank" rel="noopener">Giscus</a>
+    (uses GitHub Discussions, works well with GitHub Pages) or
+    <a href="https://disqus.com" target="_blank" rel="noopener">Disqus</a>.
+    Both are a short embed snippet away and will give you genuinely
+    persistent, public comments for Criteria 3.
+  </div>
+</section>
+
+<footer>Diyatalawa Village Geo-Platform — PL1106 Communication Technologies, Assignment 2</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+  const CENTER = [6.81139, 80.95694];
+  const map = L.map('gp-map').setView(CENTER, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  function popupFor(p){
+    return `<h3>${p.name}</h3><p style="margin:0 0 4px;">${p.note||''}</p>
+      <p style="color:#9fb3ac;font-size:11px;margin:0;">${p.category||''}</p>`;
+  }
+  function pointLayer(features, color){
+    return L.geoJSON({type:"FeatureCollection", features}, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+        radius: 7, fillColor: color, color: "#0e1f18", weight: 1.5, fillOpacity: 0.9
+      }),
+      onEachFeature: (f, layer) => layer.bindPopup(popupFor(f.properties))
+    });
+  }
+  function feat(name, category, note, lng, lat){
+    return { type:"Feature", properties:{name, category, note},
+      geometry:{ type:"Point", coordinates:[lng, lat] } };
+  }
+
+  // --- Landmarks ---
+  const landmarkFeatures = [
+    feat("Sri Lanka Military Academy","Landmark","Principal officer-training institution.",80.9520,6.8090),
+    feat("Diyatalawa Golf Links","Landmark","One of Sri Lanka's oldest golf courses.",80.9550,6.8070),
+    feat("Diyatalawa Railway Station","Landmark","Stop on the upcountry railway line.",80.9605,6.8135),
+    feat("Boer POW Cemetery","Landmark","Burial ground from the 1900–1903 POW camp.",80.9480,6.8055),
+  ];
+  const landmarksLayer = pointLayer(landmarkFeatures, "#c9a24b").addTo(map);
+
+  // --- Schools (placeholder) ---
+  const schoolFeatures = [
+    feat("Diyatalawa Central College","School","Sample location — verify with survey.",80.9575,6.8145),
+    feat("St. Andrew's School","School","Sample location — verify with survey.",80.9590,6.8118),
+  ];
+  const schoolsLayer = pointLayer(schoolFeatures, "#5aa9e6").addTo(map);
+
+  // --- Religious places (placeholder) ---
+  const religiousFeatures = [
+    feat("St. Andrew's Church","Religious","Colonial-era church.",80.9585,6.8125),
+    feat("Local Temple","Religious","Sample location — verify with survey.",80.9540,6.8102),
+  ];
+  const religiousLayer = pointLayer(religiousFeatures, "#c96b4b").addTo(map);
+
+  // --- Markets (placeholder) ---
+  const marketFeatures = [
+    feat("Diyatalawa Town Market","Market","Main bazaar and weekly market.",80.9569,6.8114),
+  ];
+  const marketsLayer = pointLayer(marketFeatures, "#e4c876").addTo(map);
+
+  // --- Public facilities (placeholder) ---
+  const publicFeatures = [
+    feat("Diyatalawa Hospital","Public facility","Sample location — verify with survey.",80.9598,6.8098),
+    feat("Post Office","Public facility","Sample location — verify with survey.",80.9572,6.8110),
+  ];
+  const publicLayer = pointLayer(publicFeatures, "#b98fd1").addTo(map);
+
+  // --- Roads (placeholder lines) ---
+  const roadsLayer = L.geoJSON({
+    type:"FeatureCollection",
+    features:[
+      { type:"Feature", properties:{name:"Main Street"},
+        geometry:{ type:"LineString", coordinates:[[80.9500,6.8080],[80.9605,6.8135]] } },
+      { type:"Feature", properties:{name:"Boer Road"},
+        geometry:{ type:"LineString", coordinates:[[80.9480,6.8055],[80.9540,6.8102]] } },
+    ]
+  }, { style: { color:"#9fb3ac", weight: 3 },
+       onEachFeature: (f,l) => l.bindPopup(`<h3>${f.properties.name}</h3>`) }).addTo(map);
+
+  // --- Buildings (placeholder footprints) ---
+  const buildingsLayer = L.geoJSON({
+    type:"FeatureCollection",
+    features:[{
+      type:"Feature", properties:{name:"Sample building block"},
+      geometry:{ type:"Polygon", coordinates:[[
+        [80.9565,6.8110],[80.9575,6.8110],[80.9575,6.8118],[80.9565,6.8118],[80.9565,6.8110]
+      ]] }
+    }]
+  }, { style:{ color:"#8a97a0", weight:1, fillOpacity:0.4 } });
+
+  // --- Village boundary (draft) ---
+  const boundaryLayer = L.geoJSON({
+    type:"Feature",
+    geometry:{ type:"Polygon", coordinates:[[
+      [80.940,6.802],[80.972,6.800],[80.978,6.818],
+      [80.965,6.826],[80.945,6.822],[80.938,6.812],[80.940,6.802]
+    ]] }
+  }, { style:{ color:"#7fae87", weight:2, dashArray:"5,5", fillOpacity:0.05 } }).addTo(map);
+
+  // --- Land use (draft zones) ---
+  const landuseLayer = L.geoJSON({
+    type:"FeatureCollection",
+    features:[
+      { type:"Feature", properties:{zone:"Residential"},
+        geometry:{ type:"Polygon", coordinates:[[[80.954,6.808],[80.964,6.808],[80.964,6.816],[80.954,6.816],[80.954,6.808]]] } },
+      { type:"Feature", properties:{zone:"Institutional / Military"},
+        geometry:{ type:"Polygon", coordinates:[[[80.948,6.805],[80.954,6.805],[80.954,6.812],[80.948,6.812],[80.948,6.805]]] } },
+      { type:"Feature", properties:{zone:"Agricultural / Plantation"},
+        geometry:{ type:"Polygon", coordinates:[[[80.960,6.816],[80.972,6.816],[80.972,6.824],[80.960,6.824],[80.960,6.816]]] } },
+    ]
+  }, {
+    style: f => ({
+      color: "#4c7a57", weight:1, fillOpacity:0.25,
+      fillColor: f.properties.zone.includes("Residential") ? "#c9a24b"
+               : f.properties.zone.includes("Institutional") ? "#c96b4b" : "#4c7a57"
+    }),
+    onEachFeature: (f,l) => l.bindPopup(`<h3>${f.properties.zone}</h3>`)
+  });
+
+  // --- Toggles ---
+  const toggles = [
+    ["ly-boundary", boundaryLayer], ["ly-roads", roadsLayer], ["ly-buildings", buildingsLayer],
+    ["ly-schools", schoolsLayer], ["ly-religious", religiousLayer], ["ly-markets", marketsLayer],
+    ["ly-public", publicLayer], ["ly-landmarks", landmarksLayer], ["ly-landuse", landuseLayer]
+  ];
+  toggles.forEach(([id, layer]) => {
+    document.getElementById(id).addEventListener('change', e => {
+      if (e.target.checked) layer.addTo(map); else map.removeLayer(layer);
+    });
+  });
+
+  document.getElementById('gp-reset').addEventListener('click', () => map.setView(CENTER, 14));
+  document.getElementById('gp-download').addEventListener('click', () => {
+    const all = {
+      type:"FeatureCollection",
+      features: [
+        ...landmarkFeatures, ...schoolFeatures, ...religiousFeatures,
+        ...marketFeatures, ...publicFeatures
+      ]
+    };
+    const blob = new Blob([JSON.stringify(all, null, 2)], {type:"application/geo+json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = "diyatalawa-geoportal-data.geojson";
+    a.click(); URL.revokeObjectURL(url);
+  });
+
+  // --- Demo comment box (in-memory only — see setup note for a real backend) ---
+  const comments = [];
+  const listEl = document.getElementById('comment-list');
+  const emptyEl = document.getElementById('comment-empty');
+
+  function renderComments(){
+    listEl.querySelectorAll('.comment-item').forEach(n => n.remove());
+    emptyEl.style.display = comments.length ? 'none' : 'block';
+    comments.slice().reverse().forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'comment-item';
+      div.innerHTML = `<div class="who">${c.name}</div>
+        <p class="what">${c.text}</p>
+        <div class="when">${c.time}</div>`;
+      listEl.appendChild(div);
+    });
+  }
+
+  document.getElementById('c-submit').addEventListener('click', () => {
+    const nameEl = document.getElementById('c-name');
+    const textEl = document.getElementById('c-text');
+    const name = nameEl.value.trim() || 'Anonymous';
+    const text = textEl.value.trim();
+    if (!text) { textEl.focus(); return; }
+    comments.push({ name, text, time: new Date().toLocaleString() });
+    nameEl.value = ''; textEl.value = '';
+    renderComments();
+  });
+
+  document.getElementById('fb-submit').addEventListener('click', () => {
+    const name = document.getElementById('fb-name').value.trim() || 'Anonymous';
+    const msg = document.getElementById('fb-message').value.trim();
+    if (!msg) { document.getElementById('fb-message').focus(); return; }
+    alert(`Thanks, ${name} — your feedback was noted.\n\n(This is a demo form. Connect it to a real service — e.g. a Google Form or Formspree endpoint — before going live.)`);
+    document.getElementById('fb-name').value = '';
+    document.getElementById('fb-message').value = '';
+  });
+</script>
+</body>
+</html>
